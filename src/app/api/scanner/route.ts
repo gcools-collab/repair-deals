@@ -9,8 +9,8 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   try {
     const criteria = parseScannerCriteria(await request.json());
-    const results = await scanLeboncoin(criteria);
-    return Response.json({ count: results.length, results });
+    const scan = await scanLeboncoin(criteria);
+    return Response.json({ count: scan.retainedCount, ...scan });
   } catch (error) {
     if (error instanceof ScannerRequestError) {
       return Response.json(

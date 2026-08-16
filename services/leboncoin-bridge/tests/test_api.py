@@ -89,7 +89,9 @@ def test_search_returns_repair_deals_shape() -> None:
         "/search", headers=HEADERS, json={"query": "PlayStation 5", "limit": 10}
     )
     assert response.status_code == 200
-    listing = response.json()[0]
+    body = response.json()
+    listing = body["results"][0]
+    assert body["rawCount"] == 2
     assert listing["title"] == "PlayStation 5 HDMI HS"
     assert listing["description"] == "Console vendue en l'état"
     assert listing["brand"] == "Sony"
@@ -107,7 +109,7 @@ def test_broken_only_removes_working_listings() -> None:
         json={"query": "PlayStation 5", "broken_only": True},
     )
     assert response.status_code == 200
-    assert [listing["id"] for listing in response.json()] == ["1234567890"]
+    assert [listing["id"] for listing in response.json()["results"]] == ["1234567890"]
 
 
 def test_search_accepts_geographic_contract() -> None:

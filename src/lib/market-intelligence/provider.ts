@@ -11,10 +11,10 @@ export async function estimateMarketWithLeboncoin(
   const retrievedAt = new Date().toISOString();
   if (!plan) return estimateMarketFromListings(request, [], { retrievedAt });
 
-  const listings = await scanLeboncoin({
+  const scan = await scanLeboncoin({
     query: plan.query,
     limit: request.limit ?? 35,
     broken_only: false,
   });
-  return estimateMarketFromListings(request, listings, { retrievedAt });
+  return estimateMarketFromListings(request, scan.results, { retrievedAt });
 }

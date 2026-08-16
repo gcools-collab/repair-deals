@@ -41,6 +41,21 @@ export type LeboncoinListing = {
   attributes: Record<string, LeboncoinAttribute>;
   detectedFaultKeywords: string[];
   likelyBroken: boolean;
+  repairRelevanceScore: number;
+  searchRelevanceScore: number;
+  exclusionReasons: string[];
+  positiveSignals: string[];
+  negativeSignals: string[];
+  listingKind: "device" | "accessory" | "spare_part" | "service" | "lot" | "unknown";
+};
+
+export type LeboncoinSearchResponse = {
+  rawCount: number;
+  retainedCount: number;
+  repairRelevanceThreshold: number;
+  searchRelevanceThreshold: number;
+  results: LeboncoinListing[];
+  excluded: Array<{ id: string; title: string; repairRelevanceScore: number; searchRelevanceScore: number; exclusionReasons: string[]; listingKind: LeboncoinListing["listingKind"] }>;
 };
 
 export class ScannerRequestError extends Error {
@@ -123,7 +138,7 @@ export function parseScannerCriteria(value: unknown): ScannerCriteria {
   };
 }
 
-export async function scanLeboncoin(criteria: ScannerCriteria): Promise<LeboncoinListing[]> {
+export async function scanLeboncoin(criteria: ScannerCriteria): Promise<LeboncoinSearchResponse> {
   const bridgeUrl = process.env.LEBONCOIN_BRIDGE_URL ?? "http://127.0.0.1:8080";
   const apiKey = process.env.LEBONCOIN_BRIDGE_API_KEY;
   if (!apiKey) {
@@ -157,5 +172,5 @@ export async function scanLeboncoin(criteria: ScannerCriteria): Promise<Leboncoi
       "bridge_error",
     );
   }
-  return (await response.json()) as LeboncoinListing[];
+  return (await response.json()) as LeboncoinSearchResponse;
 }

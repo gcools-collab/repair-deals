@@ -35,6 +35,12 @@ function listing(id: string, title: string, price: number | null, overrides: Par
     attributes: {},
     detectedFaultKeywords: [],
     likelyBroken: false,
+    repairRelevanceScore: 0,
+    searchRelevanceScore: 0,
+    exclusionReasons: [],
+    positiveSignals: [],
+    negativeSignals: [],
+    listingKind: "device",
     ...overrides,
   };
 }

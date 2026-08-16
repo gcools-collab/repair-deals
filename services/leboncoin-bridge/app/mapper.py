@@ -3,7 +3,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Protocol
 
-from app.broken_detection import detect_fault_keywords, normalize_text
+from app.broken_detection import normalize_text
+from app.relevance import classify_listing
 from app.models import LeboncoinAttribute, LeboncoinListing, LeboncoinLocation
 
 
@@ -69,7 +70,7 @@ def _credible_identity(value: str | None) -> str | None:
     return None if normalize_text(cleaned) in INVALID_IDENTITIES else cleaned
 
 
-def map_listing(ad: AdLike) -> LeboncoinListing:
+def map_listing(ad: AdLike, query: str = "") -> LeboncoinListing:
     attributes = {
         name: LeboncoinAttribute(
             key=attribute.key,
@@ -97,7 +98,7 @@ def map_listing(ad: AdLike) -> LeboncoinListing:
     model_reference = _attribute_value(
         ad, "model", "modele", "modèle", "reference", "référence", "u_car_model"
     )
-    fault_keywords = detect_fault_keywords(ad.subject, ad.body)
+    classification = classify_listing(ad.subject, ad.body, query)
 
     return LeboncoinListing(
         id=str(ad.id),
@@ -111,6 +112,12 @@ def map_listing(ad: AdLike) -> LeboncoinListing:
         attributes=attributes,
         location=location,
         published_at=ad.first_publication_date,
-        detected_fault_keywords=fault_keywords,
-        likely_broken=bool(fault_keywords),
+        detected_fault_keywords=classification.positive_signals,
+        likely_broken=classification.included,
+        repair_relevance_score=classification.repair_relevance_score,
+        search_relevance_score=classification.search_relevance_score,
+        exclusion_reasons=classification.exclusion_reasons,
+        positive_signals=classification.positive_signals,
+        negative_signals=classification.negative_signals,
+        listing_kind=classification.listing_kind,
     )

@@ -81,6 +81,32 @@ class LeboncoinListing(BaseModel):
         default_factory=list, alias="detectedFaultKeywords"
     )
     likely_broken: bool = Field(default=False, alias="likelyBroken")
+    repair_relevance_score: int = Field(default=0, ge=0, le=100, alias="repairRelevanceScore")
+    search_relevance_score: int = Field(default=0, ge=0, le=100, alias="searchRelevanceScore")
+    exclusion_reasons: list[str] = Field(default_factory=list, alias="exclusionReasons")
+    positive_signals: list[str] = Field(default_factory=list, alias="positiveSignals")
+    negative_signals: list[str] = Field(default_factory=list, alias="negativeSignals")
+    listing_kind: Literal["device", "accessory", "spare_part", "service", "lot", "unknown"] = Field(default="unknown", alias="listingKind")
+
+
+class ExcludedListingDiagnostic(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    id: str
+    title: str
+    repair_relevance_score: int = Field(alias="repairRelevanceScore")
+    search_relevance_score: int = Field(alias="searchRelevanceScore")
+    exclusion_reasons: list[str] = Field(alias="exclusionReasons")
+    listing_kind: Literal["device", "accessory", "spare_part", "service", "lot", "unknown"] = Field(alias="listingKind")
+
+
+class SearchResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    raw_count: int = Field(alias="rawCount")
+    retained_count: int = Field(alias="retainedCount")
+    repair_relevance_threshold: int = Field(alias="repairRelevanceThreshold")
+    search_relevance_threshold: int = Field(alias="searchRelevanceThreshold")
+    results: list[LeboncoinListing]
+    excluded: list[ExcludedListingDiagnostic] = Field(default_factory=list)
 
 
 class HealthResponse(BaseModel):

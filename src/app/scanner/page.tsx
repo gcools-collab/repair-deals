@@ -12,6 +12,10 @@ import {
 type ScannerResponse = {
   count: number;
   results: LeboncoinListing[];
+  rawCount: number;
+  retainedCount: number;
+  repairRelevanceThreshold: number;
+  searchRelevanceThreshold: number;
 };
 
 type ApiError = {
@@ -90,6 +94,8 @@ function ListingCard({ listing, onAnalyse }: { listing: LeboncoinListing; onAnal
             {listing.modelReference && <><dt>Modèle / référence</dt><dd>{listing.modelReference}</dd></>}
           </dl>
         )}
+
+        <small>Pertinence réparation {listing.repairRelevanceScore}/100</small>
 
         {listing.detectedFaultKeywords.length > 0 && (
           <div className="repair-keywords" aria-label="Signaux de panne détectés">

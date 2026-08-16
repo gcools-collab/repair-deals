@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from app.config import Settings
+from app.relevance import REPAIR_RELEVANCE_THRESHOLD, SEARCH_RELEVANCE_THRESHOLD
 from app.gateway import (
     LbcGateway,
     LeboncoinGateway,
@@ -21,10 +22,12 @@ from app.gateway import (
 from app.mapper import map_listing
 from app.models import (
     ErrorResponse,
+    ExcludedListingDiagnostic,
     HealthResponse,
     LeboncoinListing,
     ListingRequest,
     SearchCriteria,
+    SearchResponse,
 )
 
 logger = logging.getLogger("leboncoin_bridge")
@@ -107,11 +110,11 @@ def create_app(
 
     @app.post(
         "/search",
-        response_model=list[LeboncoinListing],
+        response_model=SearchResponse,
         responses={502: {"model": ErrorResponse}},
         dependencies=[auth],
     )
-    async def search(criteria: SearchCriteria) -> list[LeboncoinListing]:
+    async def search(criteria: SearchCriteria) -> SearchResponse:
         try:
             ads = await asyncio.wait_for(
                 run_in_threadpool(resolved_gateway.search, criteria),
@@ -120,10 +123,20 @@ def create_app(
         except TimeoutError as error:
             raise UpstreamError("Leboncoin search timed out") from error
         logger.info("Search returned %d listing(s)", len(ads))
-        listings = [map_listing(ad) for ad in ads]
-        if criteria.broken_only:
-            listings = [listing for listing in listings if listing.likely_broken]
-        return listings
+        listings = [map_listing(ad, criteria.query) for ad in ads]
+        excluded_listings = [listing for listing in listings if not listing.likely_broken]
+        retained = [listing for listing in listings if listing.likely_broken] if criteria.broken_only else listings
+        return SearchResponse(
+            raw_count=len(listings), retained_count=len(retained),
+            repair_relevance_threshold=REPAIR_RELEVANCE_THRESHOLD,
+            search_relevance_threshold=SEARCH_RELEVANCE_THRESHOLD, results=retained,
+            excluded=[ExcludedListingDiagnostic(
+                id=listing.id, title=listing.title,
+                repair_relevance_score=listing.repair_relevance_score,
+                search_relevance_score=listing.search_relevance_score,
+                exclusion_reasons=listing.exclusion_reasons, listing_kind=listing.listing_kind,
+            ) for listing in excluded_listings],
+        )
 
     @app.post(
         "/listing",
