@@ -129,3 +129,18 @@ test("aggregation calculates costs only from selected compatible candidates", ()
   assert.equal(repair.partsCostLow, 35);
   assert.equal(repair.probableParts.length, 1);
 });
+
+test("aggregation preserves eBay provider state for the UI", () => {
+  const plan = planParts(input());
+  plan.providerDiagnostics = {
+    ebayConfigured: true,
+    ebayEnvironment: "sandbox",
+    providerAvailable: true,
+    ebayStatus: "no_results",
+  };
+  const result = aggregateSelectedParts(plan, [], []);
+
+  assert.equal(result.providerDiagnostics?.ebayStatus, "no_results");
+  assert.match(result.message, /eBay est configuré/);
+  assert.doesNotMatch(result.message, /aucun fournisseur automatique/);
+});

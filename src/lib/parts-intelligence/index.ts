@@ -192,7 +192,7 @@ function sourceFor(candidates: PartCandidate[]): EstimateSource | null {
 }
 
 export function aggregateSelectedParts(
-  plan: Pick<PartEstimateResult, "probableParts" | "searchQueries">,
+  plan: Pick<PartEstimateResult, "probableParts" | "searchQueries" | "providerDiagnostics">,
   candidates: PartCandidate[],
   selectedIds: string[],
 ): PartEstimateResult {
@@ -228,7 +228,11 @@ export function aggregateSelectedParts(
         ? "Une pièce sélectionnée possède encore un prix ou des frais inconnus."
         : status === "no_known_parts"
           ? "Aucune pièce probable ne peut être suggérée pour cette panne."
-          : "Des pièces probables sont suggérées, mais aucun fournisseur automatique n’est configuré.",
+          : plan.providerDiagnostics?.ebayStatus === "no_results"
+            ? "eBay est configuré, mais aucun résultat n’a été trouvé."
+            : plan.providerDiagnostics?.ebayStatus === "results_found"
+              ? "Des candidats eBay ont été trouvés ; sélection manuelle requise faute de compatibilité suffisamment certaine."
+              : "Des pièces probables sont suggérées, mais aucun fournisseur automatique n’est configuré.",
     probableParts: plan.probableParts,
     searchQueries: plan.searchQueries,
     candidates,
@@ -244,6 +248,7 @@ export function aggregateSelectedParts(
         ? ["Les candidats hors EUR restent informatifs et sont exclus de l’agrégation financière automatique."]
         : []),
     ],
+    ...(plan.providerDiagnostics ? { providerDiagnostics: plan.providerDiagnostics } : {}),
   };
 }
 

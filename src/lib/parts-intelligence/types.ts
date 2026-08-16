@@ -105,6 +105,13 @@ export interface PartProvider {
 }
 
 export type PartEstimateStatus = "provider_required" | "no_known_parts" | "incomplete" | "estimated";
+export type PartsProviderDiagnostics = {
+  ebayConfigured: boolean;
+  ebayEnvironment: "sandbox" | "production";
+  providerAvailable: boolean;
+  ebayStatus: "credentials_missing" | "ready" | "results_found" | "no_results" | "oauth_refused" | "api_refused" | "network_error";
+};
+
 
 export type PartEstimateResult = {
   status: PartEstimateStatus;
@@ -118,6 +125,7 @@ export type PartEstimateResult = {
   confidence: number | null;
   source: EstimateSource | null;
   evidence: string[];
+  providerDiagnostics?: PartsProviderDiagnostics;
 };
 
 export type RepairEstimateBase = Pick<
