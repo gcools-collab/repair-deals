@@ -1,0 +1,1 @@
+"""Leboncoin bridge service."""

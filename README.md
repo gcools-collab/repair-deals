@@ -1,36 +1,87 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Repair Deals
 
-## Getting Started
+Repair Deals détecte des appareils d'occasion en panne susceptibles d'être achetés, réparés puis revendus.
 
-First, run the development server:
+## Scanner Leboncoin
+
+La première intégration suit ce chemin :
+
+`POST /api/scanner` (Next.js) → `POST /search` (bridge FastAPI) → client non officiel `lbc`.
+
+Copier `.env.example` vers `.env.local`, utiliser la même clé dans l'environnement du bridge, puis lancer séparément Next.js et le bridge.
+
+Exemple :
+
+```bash
+curl -X POST http://localhost:3000/api/scanner \
+  -H "Content-Type: application/json" \
+  -d '{"query":"PlayStation HDMI HS","max_price":250,"limit":20,"broken_only":true}'
+```
+
+Le scanner accepte une recherche libre, une plage de prix, une localisation avec coordonnées et rayon, une limite et le filtre `broken_only`. Les résultats incluent les informations Leboncoin normalisées et les signaux de panne détectés.
+
+## Validation manuelle
+
+Avec le bridge et Next.js démarrés :
+
+1. ouvrir `http://localhost:3000/scanner` ;
+2. lancer une recherche, puis vérifier les états chargement, erreur, résultat vide et résultats ;
+3. relancer immédiatement une autre recherche pour vérifier l’annulation de la précédente ;
+4. ouvrir une annonce avec « Analyser le deal » ;
+5. vérifier que `/analyse` importe seulement le titre et le prix disponible, et laisse toutes les estimations à compléter.
+
+Aucune annonce de démonstration n’est injectée dans le Scanner.
+
+## Identification produit
+
+`POST /api/analyse-product` applique localement des règles explicables de catégorie, marque, modèle, référence et panne. Le moteur se trouve dans `src/lib/product-analysis`, ne dépend d’aucun service IA et retourne ses niveaux de confiance ainsi que les preuves utilisées.
+
+```bash
+npm test
+```
+
+## Développement Next.js
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run lint
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Le bridge et ses instructions se trouvent dans `services/leboncoin-bridge`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Parts Intelligence avec eBay
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Créer un compte sur le portail eBay Developers.
+2. Dans **Application Keys**, créer ou ouvrir le jeu de clés Sandbox.
+3. Copier l’App ID dans `EBAY_CLIENT_ID` et le Cert ID dans
+   `EBAY_CLIENT_SECRET` dans `.env.local`.
+4. Configurer `EBAY_ENVIRONMENT=sandbox`, puis redémarrer Next.js.
+5. Ouvrir `/analyse`, identifier un produit et une panne, puis cliquer sur
+   **Rechercher automatiquement**.
 
-## Learn More
+```dotenv
+EBAY_CLIENT_ID=
+EBAY_CLIENT_SECRET=
+EBAY_ENVIRONMENT=sandbox
+```
 
-To learn more about Next.js, take a look at the following resources:
+Ne jamais préfixer ces variables avec `NEXT_PUBLIC_` : le secret et les tokens doivent
+rester côté serveur. Sans les deux credentials, Parts Intelligence conserve l’état
+`provider_required` et la saisie manuelle continue de fonctionner.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Pour tester sans appeler eBay :
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm test
+```
 
-## Deploy on Vercel
+Pour passer en production, obtenir si nécessaire l’accès Buy API Production auprès d’eBay,
+créer/récupérer le jeu de clés Production dans **Application Keys**, remplacer les deux
+credentials dans l’environnement de déploiement et définir
+`EBAY_ENVIRONMENT=production`. Ne pas réutiliser les clés Sandbox et redémarrer le serveur
+afin de recréer le client et son cache mémoire.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Limites actuelles : cache local à chaque processus, trois recherches au maximum, dix
+résultats par recherche, marketplace France, aucune conversion de devise et scoring de
+compatibilité fondé sur les données exposées par Browse (principalement le titre). Le

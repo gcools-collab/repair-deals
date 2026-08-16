@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const deals = [
   {
     id: 1,
@@ -72,7 +74,7 @@ export default function Home() {
 
           <nav>
             <a className="active">🔥 Opportunités</a>
-            <a>🔎 Recherche</a>
+            <Link href="/scanner">🔎 Scanner</Link>
             <a>📦 Mes achats</a>
             <a>🛠️ Réparations</a>
             <a>💰 Reventes</a>
@@ -96,14 +98,14 @@ export default function Home() {
             </p>
           </div>
 
-          <button className="scan-button">↻ Scanner maintenant</button>
+          <Link className="scan-button" href="/scanner">↻ Scanner maintenant</Link>
         </header>
 
         <section className="stats">
           <div className="stat-card">
             <span>Opportunités détectées</span>
             <strong>42</strong>
-            <small>+12 aujourd'hui</small>
+            <small>+12 aujourd’hui</small>
           </div>
 
           <div className="stat-card">
