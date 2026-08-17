@@ -9,7 +9,10 @@ export type EvidenceSource = "structured_attribute" | "explicit_reference" | "ti
 
 export type ProductIdentityField =
   | "category" | "brand" | "family" | "model" | "generation" | "variant"
-  | "screenSize" | "storage" | "year" | "modelNumber" | "manufacturerReference";
+  | "screenSize" | "storage" | "year" | "modelNumber" | "manufacturerReference"
+  | "objectKind" | "compatiblePlatform";
+
+export type ProductObjectKind = "device" | "controller" | "accessory" | "spare_part";
 
 export type IdentityEvidence = {
   field: ProductIdentityField | "probableReferences" | "confirmedReference";
@@ -28,6 +31,8 @@ export type ProbableProductReference = {
 
 export type ResolvedProductIdentity = {
   category: ProductCategory;
+  objectKind: ProductObjectKind;
+  compatiblePlatform: string | null;
   brand: string | null;
   family: string | null;
   model: string | null;

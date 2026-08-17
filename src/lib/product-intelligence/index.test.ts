@@ -33,6 +33,94 @@ test("resolves PS5 HDMI and produces checks without confirming a cause", () => {
   assert.deepEqual(diagnostic.confirmedCauses, []);
 });
 
+test("explicit controller identity takes priority over the PS5 platform", () => {
+  for (const title of ["Dualsense PS5", "Manette DualSense PS5"]) {
+    const result = analyzeProductV2({ title });
+    assert.equal(result.product.objectKind, "controller");
+    assert.equal(result.product.category, "other_electronics");
+    assert.equal(result.product.brand, "Sony");
+    assert.equal(result.product.family, "DualSense");
+    assert.equal(result.product.model, "DualSense");
+    assert.equal(result.product.compatiblePlatform, "PlayStation 5");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.product.evidences.some((item) => item.field === "objectKind" && item.confidence >= 90));
+  }
+});
+
+test("DualSense Edge remains a controller model", () => {
+  const result = analyzeProductV2({ title: "DualSense Edge" });
+  assert.equal(result.product.objectKind, "controller");
+  assert.equal(result.product.brand, "Sony");
+  assert.equal(result.product.family, "DualSense");
+  assert.equal(result.product.model, "DualSense Edge");
+  assert.equal(result.product.compatiblePlatform, "PlayStation 5");
+});
+
+test("PS5 controller, accessories and spare parts are structurally distinct", () => {
+  const controller = analyzeProductV2({ title: "Manette PS5" }).product;
+  assert.equal(controller.objectKind, "controller");
+  assert.equal(controller.model, "PS5 Controller");
+  assert.equal(controller.compatiblePlatform, "PlayStation 5");
+  for (const title of ["Coque manette PS5", "Coque DualSense", "Chargeur manette PS5"]) {
+    const result = analyzeProductV2({ title });
+    assert.equal(result.product.objectKind, "accessory");
+    assert.notEqual(result.product.family, "PlayStation 5");
+    assert.equal(result.diagnostics.length, 0);
+  }
+  for (const title of ["Joystick DualSense", "Stick analogique PS5"]) {
+    const result = analyzeProductV2({ title });
+    assert.equal(result.product.objectKind, "spare_part");
+    assert.notEqual(result.product.family, "PlayStation 5");
+    assert.equal(result.diagnostics.length, 0);
+  }
+});
+
+test("PS5 console cases remain devices and preserve explicit fault semantics", () => {
+  const hdmi = analyzeProductV2({ title: "PS5 HDMI HS" });
+  assert.equal(hdmi.product.objectKind, "device");
+  assert.equal(hdmi.product.family, "PlayStation 5");
+  assert.equal(hdmi.diagnostics[0]?.fault, "hdmi_issue");
+  const parts = analyzeProductV2({ title: "PS5 pour pièces" });
+  assert.equal(parts.product.objectKind, "device");
+  assert.equal(parts.product.family, "PlayStation 5");
+  assert.deepEqual(parts.diagnostics.map((item) => item.fault), ["unknown_fault"]);
+});
+
+test("controller identity resolves independently across PlayStation and Switch", () => {
+  const cases = [
+    ["DualSense PS5", "Sony", "DualSense", "DualSense", "PlayStation 5"],
+    ["DualSense Edge PS5", "Sony", "DualSense", "DualSense Edge", "PlayStation 5"],
+    ["Manette PS5 HS", "Sony", "Game Controller", "PS5 Controller", "PlayStation 5"],
+    ["Manette Switch Pokémon HS", "Nintendo", "Game Controller", "Switch Controller", "Nintendo Switch"],
+    ["Manette Switch Pro HS", "Nintendo", "Game Controller", "Switch Pro Controller", "Nintendo Switch"],
+    ["Joy-Con Switch HS", "Nintendo", "Joy-Con", "Joy-Con", "Nintendo Switch"],
+  ] as const;
+  for (const [title, brand, family, model, platform] of cases) {
+    const product = analyzeProductV2({ title }).product;
+    assert.equal(product.objectKind, "controller", title);
+    assert.equal(product.brand, brand, title);
+    assert.equal(product.family, family, title);
+    assert.equal(product.model, model, title);
+    assert.equal(product.compatiblePlatform, platform, title);
+  }
+});
+
+test("sale intent never changes PS5 device identity and accessories remain separate", () => {
+  const console = analyzeProductV2({ title: "PS5 pour pièces" });
+  assert.equal(console.product.objectKind, "device");
+  assert.equal(console.product.category, "console");
+  assert.equal(console.product.family, "PlayStation 5");
+  assert.deepEqual(console.diagnostics.map((item) => item.fault), ["unknown_fault"]);
+  assert.equal(analyzeProductV2({ title: "coque PS5" }).product.objectKind, "accessory");
+  assert.equal(analyzeProductV2({ title: "joystick DualSense" }).product.objectKind, "spare_part");
+});
+
+test("an explicit fault in the description reaches diagnostics when the title is vague", () => {
+  const result = analyzeProductV2({ title: "Switch OLED HS", description: "La console ne charge plus depuis hier." });
+  assert.ok(result.diagnostics.some((item) => item.fault === "charging_issue"));
+  assert.ok(result.v1Analysis.evidence.some((item) => item.includes("Description") && item.includes("charging_issue")));
+});
+
 test("distinguishes iPhone 13 from iPhone 13 Pro Max", () => {
   const regular = analyzeProductV2({ title: "iPhone 13 écran cassé" });
   const proMax = analyzeProductV2({ title: "iPhone 13 Pro Max écran cassé" });

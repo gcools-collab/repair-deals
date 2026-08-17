@@ -17,6 +17,11 @@ logger = logging.getLogger("leboncoin_bridge.gateway")
 class UpstreamError(RuntimeError):
     """The upstream client failed or returned an unusable response."""
 
+    def __init__(self, message: str, code: str = "provider_unavailable", status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.code = code
+        self.status_code = status_code
+
 
 class ProviderCriteriaError(RuntimeError):
     """The provider library rejected locally built search criteria."""
@@ -68,13 +73,29 @@ class LbcGateway:
             )
             raise ProviderCriteriaError("Leboncoin search criteria were rejected") from error
         except (RequestError, RequestException) as error:
-            status_code = getattr(getattr(error, "response", None), "status_code", None)
+            response = getattr(error, "response", None)
+            status_code = getattr(response, "status_code", None)
+            response_text = str(getattr(response, "text", "")).lower()
+            response_headers = getattr(response, "headers", {}) or {}
+            datadome_header = any("datadome" in str(key).lower() or "datadome" in str(value).lower() for key, value in response_headers.items())
+            error_name = type(error).__name__.lower()
+            if "datadome" in response_text or datadome_header:
+                code = "provider_datadome"
+            elif status_code == 429:
+                code = "provider_rate_limited"
+            elif "timeout" in error_name:
+                code = "provider_timeout"
+            elif status_code is not None:
+                code = "provider_http_error"
+            else:
+                code = "provider_unavailable"
             logger.error(
-                "provider=lbc operation=search error_type=%s upstream_status=%s",
+                "provider=lbc operation=search error_type=%s category=%s upstream_status=%s",
                 type(error).__name__,
+                code,
                 status_code,
             )
-            raise UpstreamError("Leboncoin search failed") from error
+            raise UpstreamError("Leboncoin search failed", code, status_code) from error
         except Exception as error:
             logger.error(
                 "provider=lbc operation=search error_type=%s category=internal",

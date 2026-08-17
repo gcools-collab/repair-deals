@@ -1,9 +1,10 @@
 import type { MarketEstimate } from "../deal-economics/types.ts";
 import type { LeboncoinListing } from "../leboncoin-scanner.ts";
-import type { ResolvedProductIdentity } from "../product-intelligence/types.ts";
+import type { ProductObjectKind, ResolvedProductIdentity } from "../product-intelligence/types.ts";
+import type { BundleSeverity, ListingSubjectKind } from "./subject-classifier.ts";
 
 export type MarketQueryTier = { tier: 1 | 2 | 3 | 4 | 5; query: string; requiredIdentityFields: string[]; confidence: number; rationale: string };
-export type MarketComparableV2 = { listing: LeboncoinListing; similarityScore: number; identityMatches: string[]; identityConflicts: string[]; conditionSignals: string[]; excluded: boolean; exclusionReasons: string[] };
+export type MarketComparableV2 = { listing: LeboncoinListing; estimatedObjectKind: ProductObjectKind; estimatedSubjectKind: ListingSubjectKind; bundleSeverity: BundleSeverity; subjectEvidence: string[]; similarityScore: number; identityMatches: string[]; identityConflicts: string[]; conditionSignals: string[]; excluded: boolean; exclusionReasons: string[] };
 export type MarketTierAttempt = { tier: MarketQueryTier["tier"]; query: string; rawCount: number; validCount: number; averageSimilarity: number; strongCount: number; stopReason: string | null };
 export type MarketEstimateV2Status = "success" | "insufficient_comparables" | "prices_too_dispersed" | "identity_too_vague" | "provider_error";
 export type MarketEstimateV2 = {

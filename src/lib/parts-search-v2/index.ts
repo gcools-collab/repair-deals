@@ -72,7 +72,9 @@ export async function executePartsSearchV2(
   const selectedDiagnostic = input.confirmedFault
     ? v2.diagnostics.find((diagnostic) => diagnostic.fault === input.confirmedFault) || null
     : null;
-  const diagnosticsForRequirements = selectedDiagnostic ? [selectedDiagnostic] : v2.diagnostics;
+  const diagnosticsForRequirements = selectedDiagnostic ? [selectedDiagnostic] : input.minimumDiagnosticConfidence === undefined || input.minimumDiagnosticConfidence === null
+    ? v2.diagnostics
+    : v2.diagnostics.filter((diagnostic) => diagnostic.fault !== "unknown_fault" && diagnostic.confidence >= input.minimumDiagnosticConfidence!);
   const requirements = resolvePrecisePartRequirements({ product: v2.product, diagnostics: diagnosticsForRequirements });
   const providers = providerEntries.flatMap((entry) => entry.provider ? [entry.provider] : []);
   const searchResults = await orchestrateTieredPartsSearch({

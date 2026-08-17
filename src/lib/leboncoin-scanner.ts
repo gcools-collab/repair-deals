@@ -58,14 +58,48 @@ export type LeboncoinSearchResponse = {
   excluded: Array<{ id: string; title: string; repairRelevanceScore: number; searchRelevanceScore: number; exclusionReasons: string[]; listingKind: LeboncoinListing["listingKind"] }>;
 };
 
+export type DiscoveryErrorCode =
+  | "provider_unavailable"
+  | "provider_timeout"
+  | "provider_rate_limited"
+  | "provider_datadome"
+  | "provider_http_error"
+  | "bridge_unavailable"
+  | "bridge_auth_error";
+
 export class ScannerRequestError extends Error {
   constructor(
     message: string,
     readonly status: number,
     readonly code: string,
+    readonly upstreamStatus: number | null = null,
   ) {
     super(message);
+    this.name = "ScannerRequestError";
   }
+}
+
+function isTimeout(error: unknown) {
+  return error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+}
+
+async function classifyBridgeError(response: Response): Promise<DiscoveryErrorCode> {
+  let providerCode = "";
+  let providerMessage = "";
+  try {
+    const payload = await response.json() as { error?: { code?: unknown; message?: unknown } };
+    providerCode = typeof payload.error?.code === "string" ? payload.error.code : "";
+    providerMessage = typeof payload.error?.message === "string" ? payload.error.message : "";
+  } catch {
+    // An opaque/non-JSON bridge response is classified from its HTTP status only.
+  }
+  const signal = `${providerCode} ${providerMessage}`.toLowerCase();
+  if (response.status === 401 || response.status === 403 && !signal.includes("datadome")) return "bridge_auth_error";
+  if (signal.includes("datadome")) return "provider_datadome";
+  if (response.status === 429 || signal.includes("rate_limit")) return "provider_rate_limited";
+  if (response.status === 504 || signal.includes("timeout")) return "provider_timeout";
+  if (signal.includes("unavailable")) return "provider_unavailable";
+  return "provider_http_error";
 }
 
 function optionalNumber(
@@ -145,7 +179,7 @@ export async function scanLeboncoin(criteria: ScannerCriteria): Promise<Leboncoi
     throw new ScannerRequestError(
       "Leboncoin bridge is not configured",
       503,
-      "bridge_not_configured",
+      "bridge_unavailable",
     );
   }
 
@@ -161,15 +195,20 @@ export async function scanLeboncoin(criteria: ScannerCriteria): Promise<Leboncoi
       cache: "no-store",
       signal: AbortSignal.timeout(25_000),
     });
-  } catch {
+  } catch (error) {
+    if (isTimeout(error)) {
+      throw new ScannerRequestError("Leboncoin provider timed out", 504, "provider_timeout");
+    }
     throw new ScannerRequestError("Leboncoin bridge is unavailable", 502, "bridge_unavailable");
   }
 
   if (!response.ok) {
+    const code = await classifyBridgeError(response);
     throw new ScannerRequestError(
-      "Leboncoin bridge rejected the scan",
-      response.status >= 500 ? 502 : response.status,
-      "bridge_error",
+      code === "bridge_auth_error" ? "Leboncoin bridge authentication failed" : "Leboncoin provider request failed",
+      response.status,
+      code,
+      response.status,
     );
   }
   return (await response.json()) as LeboncoinSearchResponse;

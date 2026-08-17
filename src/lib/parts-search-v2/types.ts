@@ -20,6 +20,7 @@ export type PartsSearchV2Input = {
   repairKeywords?: string[] | null;
   detectedFaults?: FaultType[] | null;
   confirmedFault?: FaultType | null;
+  minimumDiagnosticConfidence?: number | null;
   currency?: string | null;
 };
 

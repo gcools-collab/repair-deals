@@ -78,10 +78,16 @@ def create_app(
 
     @app.exception_handler(UpstreamError)
     async def handle_upstream_error(request: Request, error: UpstreamError) -> JSONResponse:
-        logger.error("provider=lbc operation=%s category=upstream", request.url.path)
+        logger.error(
+            "provider=lbc operation=%s category=%s upstream_status=%s",
+            request.url.path,
+            error.code,
+            error.status_code,
+        )
+        response_status = 504 if error.code == "provider_timeout" else 429 if error.code == "provider_rate_limited" else 502
         return JSONResponse(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            content={"error": {"code": "upstream_error", "message": str(error)}},
+            status_code=response_status,
+            content={"error": {"code": error.code, "message": str(error), "upstreamStatus": error.status_code}},
         )
 
     @app.exception_handler(ProviderCriteriaError)
@@ -121,7 +127,7 @@ def create_app(
                 timeout=resolved_settings.request_timeout_seconds + 1,
             )
         except TimeoutError as error:
-            raise UpstreamError("Leboncoin search timed out") from error
+            raise UpstreamError("Leboncoin search timed out", "provider_timeout") from error
         logger.info("Search returned %d listing(s)", len(ads))
         listings = [map_listing(ad, criteria.query) for ad in ads]
         excluded_listings = [listing for listing in listings if not listing.likely_broken]

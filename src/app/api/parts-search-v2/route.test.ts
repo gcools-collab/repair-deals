@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { PartsSearchV2Response } from "@/lib/parts-search-v2";
+import { executePartsSearchV2, type PartsSearchV2Response } from "@/lib/parts-search-v2";
 import type { PartCandidate, PartProvider, PartSearchInput, PartType } from "@/lib/parts-intelligence";
 import { createPartsSearchV2Handler } from "./route.ts";
 
@@ -129,4 +129,25 @@ test("route rejects invalid input without invoking a V1 fallback", async () => {
   const response = await handler(request({ title: "", confirmedFault: "invented_fault" }));
   assert.equal(response.status, 422);
   assert.equal((await response.json()).error.code, "validation_error");
+});
+
+test("global diagnostic guard does not search parts for DualSense without an identified fault", async () => {
+  const provider = new MockProvider(() => [candidate("invented", "PS5 replacement part")]);
+  const result = await executePartsSearchV2({ title: "Dualsense PS5", minimumDiagnosticConfidence: 60 }, [{ id: "mock", name: "Mock", provider }]);
+  assert.equal(result.identity.family, "DualSense");
+  assert.equal(result.identity.objectKind, "controller");
+  assert.equal(result.identity.compatiblePlatform, "PlayStation 5");
+  assert.ok(result.identity.confidence >= 60);
+  assert.equal(result.diagnostics.length, 0);
+  assert.equal(result.primaryResults.length, 0);
+  assert.equal(provider.calls.length, 0);
+});
+
+test("unknown PS5 for-parts fault is distinct from parts not found", async () => {
+  const provider = new MockProvider(() => [candidate("invented", "PS5 replacement part")]);
+  const result = await executePartsSearchV2({ title: "PS5 pour pièces", minimumDiagnosticConfidence: 60 }, [{ id: "mock", name: "Mock", provider }]);
+  assert.equal(result.diagnostics[0]?.fault, "unknown_fault");
+  assert.equal(result.diagnostics[0]?.confidence, 28);
+  assert.equal(result.primaryResults.length, 0);
+  assert.equal(provider.calls.length, 0);
 });

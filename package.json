@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test src/lib/repair-intelligence-history/supabase-repository.test.ts src/lib/repair-intelligence-history/index.test.ts src/lib/global-opportunity-scanner/index.test.ts src/app/api/market-estimate-v2/route.test.ts src/lib/market-intelligence-v2/index.test.ts src/app/api/parts-search-v2/route.test.ts src/lib/product-analysis/index.test.ts src/lib/product-intelligence/index.test.ts src/lib/product-intelligence/part-requirements.test.ts src/lib/deal-economics/index.test.ts src/lib/deal-decision-context/index.test.ts src/lib/market-intelligence/index.test.ts src/lib/parts-intelligence/index.test.ts src/lib/parts-intelligence/ebay.test.ts src/lib/parts-intelligence/ranking.test.ts src/lib/parts-intelligence/orchestrator.test.ts"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/lib/diagnostic-intelligence-v2/index.test.ts src/lib/repair/repair-cost-engine.test.ts src/lib/leboncoin-scanner.test.ts src/lib/repair-intelligence-history/supabase-repository.test.ts src/lib/repair-intelligence-history/index.test.ts src/lib/global-opportunity-scanner/index.test.ts src/app/api/market-estimate-v2/route.test.ts src/lib/market-intelligence-v2/index.test.ts src/app/api/parts-search-v2/route.test.ts src/lib/product-analysis/index.test.ts src/lib/product-intelligence/index.test.ts src/lib/product-intelligence/part-requirements.test.ts src/lib/deal-economics/index.test.ts src/lib/deal-decision-context/index.test.ts src/lib/market-intelligence/index.test.ts src/lib/parts-intelligence/index.test.ts src/lib/parts-intelligence/ebay.test.ts src/lib/parts-intelligence/ranking.test.ts src/lib/parts-intelligence/orchestrator.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
