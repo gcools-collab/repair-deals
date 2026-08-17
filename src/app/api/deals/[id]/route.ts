@@ -1,0 +1,2 @@
+import{DealHistoryService}from"@/lib/repair-intelligence-history";export const runtime="nodejs";export const dynamic="force-dynamic";const service=new DealHistoryService();
+export async function GET(_request:Request,{params}:{params:Promise<{id:string}>}){const{id}=await params;const history=await service.get(id);return history?Response.json(history):Response.json({error:{code:"not_found",message:"Deal introuvable"}},{status:404});}
