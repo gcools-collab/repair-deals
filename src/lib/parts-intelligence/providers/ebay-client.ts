@@ -14,9 +14,14 @@ export type EbayItemSummary = {
   price?: { value?: unknown; currency?: unknown };
   itemWebUrl?: unknown;
   image?: { imageUrl?: unknown };
-  seller?: { username?: unknown };
+  seller?: { username?: unknown; feedbackPercentage?: unknown; feedbackScore?: unknown };
+  topRatedBuyingExperience?: unknown;
   condition?: unknown;
-  shippingOptions?: Array<{ shippingCost?: { value?: unknown; currency?: unknown } }>;
+  shippingOptions?: Array<{
+    shippingCost?: { value?: unknown; currency?: unknown };
+    minEstimatedDeliveryDate?: unknown;
+    maxEstimatedDeliveryDate?: unknown;
+  }>;
   itemLocation?: { country?: unknown; postalCode?: unknown };
   buyingOptions?: unknown;
   estimatedAvailabilities?: Array<{ estimatedAvailabilityStatus?: unknown }>;

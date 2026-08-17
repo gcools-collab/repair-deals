@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test src/lib/product-analysis/index.test.ts src/lib/deal-economics/index.test.ts src/lib/market-intelligence/index.test.ts src/lib/parts-intelligence/index.test.ts src/lib/parts-intelligence/ebay.test.ts"
+    "test": "tsx --test src/lib/global-opportunity-scanner/index.test.ts src/app/api/market-estimate-v2/route.test.ts src/lib/market-intelligence-v2/index.test.ts src/app/api/parts-search-v2/route.test.ts src/lib/product-analysis/index.test.ts src/lib/product-intelligence/index.test.ts src/lib/product-intelligence/part-requirements.test.ts src/lib/deal-economics/index.test.ts src/lib/deal-decision-context/index.test.ts src/lib/market-intelligence/index.test.ts src/lib/parts-intelligence/index.test.ts src/lib/parts-intelligence/ebay.test.ts src/lib/parts-intelligence/ranking.test.ts src/lib/parts-intelligence/orchestrator.test.ts"
   },
   "dependencies": {
     "next": "16.3.1",

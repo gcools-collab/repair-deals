@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { MarketEstimateResult } from "@/lib/market-intelligence";
+import type { MarketEstimateV2Response } from "@/lib/market-intelligence-v2";
 import type { ProductAnalysisResult } from "@/lib/product-analysis";
 
 type Props = {
@@ -9,6 +10,8 @@ type Props = {
   originalTitle: string;
   result: MarketEstimateResult | null;
   onResult: (result: MarketEstimateResult) => void;
+  v2Result: MarketEstimateV2Response | null;
+  onV2Result: (result: MarketEstimateV2Response) => void;
 };
 
 function formatDate(value: string | null | undefined) {
@@ -18,9 +21,10 @@ function formatDate(value: string | null | undefined) {
   return new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
-export default function MarketEstimator({ identity, originalTitle, result, onResult }: Props) {
+export default function MarketEstimator({ identity, originalTitle, result, onResult, v2Result, onV2Result }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [v2Loading, setV2Loading] = useState(false);
   const request = useRef<AbortController | null>(null);
 
   useEffect(() => () => request.current?.abort(), []);
@@ -61,13 +65,38 @@ export default function MarketEstimator({ identity, originalTitle, result, onRes
     }
   }
 
+  async function estimateV2() {
+    if (!identity || !originalTitle.trim()) return;
+    setV2Loading(true); setError(null);
+    try {
+      const response = await fetch("/api/market-estimate-v2", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: originalTitle, brand: identity.brand, model: identity.model, reference: identity.reference, detectedFaults: identity.detectedFaults }) });
+      const body = await response.json() as MarketEstimateV2Response | { error?: { message?: string } };
+      if (!response.ok) throw new Error("error" in body ? body.error?.message || "Estimation V2 impossible" : "Estimation V2 impossible");
+      onV2Result(body as MarketEstimateV2Response);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Estimation V2 impossible"); }
+    finally { setV2Loading(false); }
+  }
+
   return (
     <div className="market-estimator">
+      <button className="market-estimate-button" type="button" onClick={estimateV2} disabled={v2Loading || !identity}>
+        {v2Loading ? "Recherche V2 des comparables…" : "Estimer le marché (V2)"}
+      </button>
       <button className="market-estimate-button" type="button" onClick={estimate} disabled={loading || !identity}>
-        {loading ? "Recherche des comparables…" : "Estimer le prix marché"}
+        {loading ? "Recherche des comparables…" : "Estimer le marché (V1)"}
       </button>
       {!identity && <p className="market-estimate-note">L’identification produit doit être disponible avant la recherche.</p>}
       {error && <p className="market-estimate-error">{error}</p>}
+      {v2Result && (
+        <div className={v2Result.estimate.status === "success" ? "market-estimate-state success" : "market-estimate-state"}>
+          <strong>Market Intelligence V2 · {v2Result.estimate.status}</strong>
+          <span>Identité : {[v2Result.identity.brand, v2Result.identity.family, v2Result.identity.year, v2Result.identity.screenSize && `${v2Result.identity.screenSize} pouces`, v2Result.identity.variant].filter(Boolean).join(" ")}</span>
+          <small>Tier utilisé : {v2Result.estimate.tierUsed ?? "aucun"} · tentés : {v2Result.estimate.tiersAttempted.map((tier) => tier.tier).join(" → ") || "aucun"}</small>
+          <small>Bas {v2Result.estimate.lowPrice ?? "—"} € · médiane {v2Result.estimate.medianPrice ?? "—"} € · haut {v2Result.estimate.highPrice ?? "—"} € · pondérée {v2Result.estimate.weightedMedian ?? "—"} €</small>
+          <small>Confiance {v2Result.estimate.confidence}/100 · échantillon {v2Result.estimate.sampleSize} (effectif {v2Result.estimate.effectiveSampleSize})</small>
+          {v2Result.estimate.comparables.length > 0 && <details className="market-comparables"><summary>Top comparables V2</summary><ul>{v2Result.estimate.comparables.slice(0, 5).map((comparable) => <li key={comparable.listing.id || comparable.listing.url}><a href={comparable.listing.url} target="_blank" rel="noreferrer">{comparable.listing.title}</a><span>{comparable.listing.price ?? "—"} € · similarité {comparable.similarityScore}/100</span></li>)}</ul></details>}
+        </div>
+      )}
       {result && (
         <div className={result.status === "success" ? "market-estimate-state success" : "market-estimate-state"}>
           <strong>{result.status === "success" ? "Estimation Leboncoin disponible" : "Estimation non produite"}</strong>

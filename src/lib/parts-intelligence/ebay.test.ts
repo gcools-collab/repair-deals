@@ -128,6 +128,28 @@ test("known shipping produces a total and unknown shipping keeps total unknown",
   assert.equal(results.find((candidate) => candidate.providerItemId === "unknown")?.totalPrice, null);
 });
 
+test("Browse seller and delivery metadata are normalized only when exposed", async () => {
+  const fetcher: typeof fetch = async (url) => String(url).includes("/oauth2/token") ? token() : json({
+    itemSummaries: [item("metadata", "HDMI Port Socket Connector for Sony PS5", {
+      seller: { username: "trusted-parts", feedbackPercentage: "99.8", feedbackScore: 50_000 },
+      topRatedBuyingExperience: true,
+      shippingOptions: [{
+        shippingCost: { value: "4.50", currency: "EUR" },
+        minEstimatedDeliveryDate: "2026-08-19T00:00:00.000Z",
+        maxEstimatedDeliveryDate: "2026-08-21T00:00:00.000Z",
+      }],
+    })],
+  });
+  const [candidate] = await new EbayPartsProvider(clientWith(fetcher)).search(ps5Input, ["PS5 HDMI port"]);
+  assert.deepEqual(candidate.sellerMetadata, {
+    username: "trusted-parts", feedbackPercentage: 99.8, feedbackCount: 50_000, topRated: true,
+  });
+  assert.deepEqual(candidate.deliveryEstimate, {
+    minDate: "2026-08-19T00:00:00.000Z", maxDate: "2026-08-21T00:00:00.000Z",
+  });
+  assert.equal(candidate.returnPolicy, null);
+});
+
 test("USD remains in its original currency without conversion", async () => {
   const fetcher: typeof fetch = async (url) => String(url).includes("/oauth2/token") ? token() : json({
     itemSummaries: [item("usd", "HDMI Port Socket Connector for Sony PS5", {

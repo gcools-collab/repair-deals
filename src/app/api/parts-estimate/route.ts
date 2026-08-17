@@ -1,8 +1,7 @@
 import { aggregateSelectedParts, planParts, selectBestCandidates } from "@/lib/parts-intelligence";
 import type { PartSearchInput } from "@/lib/parts-intelligence";
-import type { EbayClientConfig } from "@/lib/parts-intelligence/providers/ebay-client";
-import { EbayApiError, EbayBrowseClient, ebayConfigFromEnv } from "@/lib/parts-intelligence/providers/ebay-client";
-import { EbayPartsProvider } from "@/lib/parts-intelligence/providers/ebay";
+import { EbayApiError } from "@/lib/parts-intelligence/providers/ebay-client";
+import { configuredEbayProvider, resetEbayProviderForTests } from "@/lib/parts-intelligence/providers/configured";
 import {
   FAULT_TYPES,
   PRODUCT_CATEGORIES,
@@ -11,26 +10,7 @@ import {
 } from "@/lib/product-analysis";
 
 export const runtime = "nodejs";
-let ebayProviderCache: { config: EbayClientConfig; provider: EbayPartsProvider } | undefined;
-
-function sameConfig(left: EbayClientConfig, right: EbayClientConfig) {
-  return left.clientId === right.clientId && left.clientSecret === right.clientSecret &&
-    left.environment === right.environment && left.marketplaceId === right.marketplaceId;
-}
-
-export function configuredEbayProvider() {
-  const config = ebayConfigFromEnv();
-  // Never cache missing credentials: Fast Refresh can keep this module alive.
-  if (!config) return null;
-  if (!ebayProviderCache || !sameConfig(ebayProviderCache.config, config)) {
-    ebayProviderCache = { config, provider: new EbayPartsProvider(new EbayBrowseClient(config)) };
-  }
-  return ebayProviderCache.provider;
-}
-
-export function resetEbayProviderForTests() {
-  ebayProviderCache = undefined;
-}
+export { configuredEbayProvider, resetEbayProviderForTests };
 
 function ebayDiagnostics(providerAvailable: boolean, ebayStatus: "credentials_missing" | "ready" | "results_found" | "no_results" | "oauth_refused" | "api_refused" | "network_error") {
   const selected = process.env.EBAY_ENVIRONMENT?.trim();
@@ -126,7 +106,7 @@ export async function POST(request: Request) {
         (error.code === "request" && error.status !== null);
       const code = error.code === "oauth" ? "ebay_oauth_refused" : apiRefused ? "ebay_api_refused" : "ebay_network_error";
       const status = error.code === "rate_limit" ? 429 : error.code === "forbidden" ? 403 : 502;
-      const diagnostics = ebayDiagnostics(Boolean(ebayProviderCache), code === "ebay_oauth_refused" ? "oauth_refused" : code === "ebay_api_refused" ? "api_refused" : "network_error");
+      const diagnostics = ebayDiagnostics(Boolean(configuredEbayProvider()), code === "ebay_oauth_refused" ? "oauth_refused" : code === "ebay_api_refused" ? "api_refused" : "network_error");
       logEbayDiagnostics(diagnostics);
       return Response.json(
         { error: { code, reason: error.code, message: error.message, provider: "ebay" }, providerDiagnostics: diagnostics },

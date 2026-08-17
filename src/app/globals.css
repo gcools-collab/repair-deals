@@ -1068,3 +1068,20 @@ select {
 .ebay-candidate dt { color: #788390; font-size: 11px; }
 .ebay-candidate dd { margin: 0; font-size: 12px; }
 .ebay-candidate a, .ebay-candidate summary { color: #8ec5ff; cursor: pointer; font-size: 12px; }
+.parts-ranking-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+.parts-ranking-summary > div { display: grid; gap: 4px; padding: 10px; border: 1px solid #273643; border-radius: 9px; background: #101720; }
+.parts-ranking-summary span { color: #8994a1; font-size: 10px; text-transform: uppercase; }
+.parts-ranking-summary strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.ranking-badges { display: flex; flex-wrap: wrap; gap: 5px; }
+.ranking-badges span { padding: 3px 6px; border-radius: 999px; color: #8eeab2; background: #14301f; }
+.ranking-warnings { grid-column: 1 / -1; display: grid; gap: 3px; color: #e6b56b; font-size: 11px; }
+.ebay-candidate.ranking-excluded { border-color: #573137; opacity: .75; }
+.parts-search-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.parts-v2-results { display: grid; gap: 14px; margin-top: 18px; padding-top: 18px; border-top: 1px solid #273643; }
+.v2-identity-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.v2-identity-summary span { color: #8994a1; font-size: 11px; }
+.v2-requirement-group { display: grid; gap: 10px; }
+.v2-alternatives > div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid #222a34; }
+.v2-alternatives span { color: #8994a1; font-size: 11px; }
+.decision-context-state { display: flex; justify-content: space-between; gap: 16px; margin-top: 12px; padding: 10px 14px; border: 1px solid #273643; border-radius: 9px; background: #101720; }
+.decision-context-state span { color: #8994a1; font-size: 11px; }

@@ -35,6 +35,10 @@ function numberValue(value: unknown) {
   return Number.isFinite(result) && result >= 0 ? result : null;
 }
 
+function booleanValue(value: unknown) {
+  return typeof value === "boolean" ? value : null;
+}
+
 export function classifyEbayQuality(title: string, condition: string | null): { quality: PartQuality; evidence: string } {
   const source = normalized(title + " " + (condition ?? ""));
   if (/\b(refurbished|reconditionne|reconditioned)\b/.test(source)) {
@@ -167,10 +171,14 @@ function normalizeItem(item: EbayItemSummary, input: PartSearchInput, query: str
 
   const unitPrice = numberValue(item.price?.value);
   const currency = stringValue(item.price?.currency);
-  const shipping = item.shippingOptions?.map((option) => ({
+  const shippingOptions = item.shippingOptions?.map((option) => ({
     value: numberValue(option.shippingCost?.value),
     currency: stringValue(option.shippingCost?.currency),
-  })).find((option) => option.value !== null && (!currency || option.currency === currency));
+    minDate: stringValue(option.minEstimatedDeliveryDate),
+    maxDate: stringValue(option.maxEstimatedDeliveryDate),
+  })) || [];
+  const shipping = shippingOptions.find((option) => option.value !== null && (!currency || option.currency === currency));
+  const delivery = shippingOptions.find((option) => option.minDate !== null || option.maxDate !== null);
   const shippingCost = shipping?.value ?? null;
   const totalPrice = unitPrice !== null && shippingCost !== null
     ? Math.round((unitPrice + shippingCost) * 100) / 100
@@ -196,6 +204,12 @@ function normalizeItem(item: EbayItemSummary, input: PartSearchInput, query: str
     url: stringValue(item.itemWebUrl),
     imageUrl: stringValue(item.image?.imageUrl),
     seller: stringValue(item.seller?.username),
+    sellerMetadata: item.seller ? {
+      username: stringValue(item.seller.username),
+      feedbackPercentage: numberValue(item.seller.feedbackPercentage),
+      feedbackCount: numberValue(item.seller.feedbackScore),
+      topRated: booleanValue(item.topRatedBuyingExperience),
+    } : null,
     condition,
     itemLocation: item.itemLocation ? {
       countryCode: stringValue(item.itemLocation.country),
@@ -204,6 +218,8 @@ function normalizeItem(item: EbayItemSummary, input: PartSearchInput, query: str
     buyingOptions: Array.isArray(item.buyingOptions) ? item.buyingOptions.filter((value): value is string => typeof value === "string") : null,
     itemCreationDate: stringValue(item.itemCreationDate),
     itemEndDate: stringValue(item.itemEndDate),
+    deliveryEstimate: delivery ? { minDate: delivery.minDate, maxDate: delivery.maxDate } : null,
+    returnPolicy: null,
     retrievedAt,
     confidence: compatibility.confidence,
     compatibilityConfidence: compatibility.confidence,

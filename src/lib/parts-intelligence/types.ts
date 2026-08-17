@@ -44,6 +44,24 @@ export type PartLocation = {
   postalCode: string | null;
 };
 
+export type PartSellerMetadata = {
+  username: string | null;
+  feedbackPercentage: number | null;
+  feedbackCount: number | null;
+  topRated: boolean | null;
+};
+
+export type PartDeliveryEstimate = {
+  minDate: string | null;
+  maxDate: string | null;
+};
+
+export type PartReturnPolicy = {
+  returnsAccepted: boolean | null;
+  returnPeriodDays: number | null;
+  warranty: string | null;
+};
+
 export type PartSearchInput = {
   category: ProductCategory;
   brand: string | null;
@@ -79,11 +97,14 @@ export type PartCandidate = {
   url: string | null;
   imageUrl: string | null;
   seller: string | null;
+  sellerMetadata?: PartSellerMetadata | null;
   condition: string | null;
   itemLocation: PartLocation | null;
   buyingOptions: string[] | null;
   itemCreationDate: string | null;
   itemEndDate: string | null;
+  deliveryEstimate?: PartDeliveryEstimate | null;
+  returnPolicy?: PartReturnPolicy | null;
   retrievedAt: string | null;
   confidence: number | null;
   compatibilityConfidence: number | null;

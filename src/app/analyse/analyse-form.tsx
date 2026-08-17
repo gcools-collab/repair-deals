@@ -10,8 +10,11 @@ import {
   type RepairEstimate,
 } from "@/lib/deal-economics";
 import { toDealEngineInput } from "@/lib/deal-economics/deal-engine-adapter";
+import { createDealDecisionContext } from "@/lib/deal-decision-context";
 import type { MarketEstimateResult } from "@/lib/market-intelligence";
+import { adaptMarketEstimateV2, type MarketEstimateV2Response } from "@/lib/market-intelligence-v2";
 import { toRepairEstimate, type PartEstimateResult } from "@/lib/parts-intelligence";
+import type { PartsSearchV2Response } from "@/lib/parts-search-v2";
 import PartsEditor from "./parts-editor";
 import MarketEstimator from "./market-estimator";
 import {
@@ -97,7 +100,9 @@ export default function AnalyseForm({ imported, importedTitle, importedPrice }: 
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(imported);
   const [marketResult, setMarketResult] = useState<MarketEstimateResult | null>(null);
+  const [marketV2Result, setMarketV2Result] = useState<MarketEstimateV2Response | null>(null);
   const [partsResult, setPartsResult] = useState<PartEstimateResult | null>(null);
+  const [partsV2Result, setPartsV2Result] = useState<PartsSearchV2Response | null>(null);
 
   useEffect(() => {
     if (!imported) return;
@@ -127,7 +132,7 @@ export default function AnalyseForm({ imported, importedTitle, importedPrice }: 
     return () => controller.abort();
   }, [imported, importedTitle]);
 
-  const marketEstimate = useMemo<MarketEstimate>(() => ({
+  const marketEstimate = useMemo<MarketEstimate>(() => marketV2Result ? adaptMarketEstimateV2(marketV2Result.estimate).estimate : ({
     lowPrice: nullableNumber(economicForm.marketLow),
     medianPrice: nullableNumber(economicForm.marketMedian),
     highPrice: nullableNumber(economicForm.marketHigh),
@@ -135,7 +140,7 @@ export default function AnalyseForm({ imported, importedTitle, importedPrice }: 
     sampleSize: marketResult?.estimate.sampleSize ?? null,
     source: marketResult?.estimate.source ?? MANUAL_SOURCE,
     comparableItems: marketResult?.estimate.comparableItems ?? [],
-  }), [economicForm.marketHigh, economicForm.marketLow, economicForm.marketMedian, marketResult]);
+  }), [economicForm.marketHigh, economicForm.marketLow, economicForm.marketMedian, marketResult, marketV2Result]);
 
   const repairEstimate = useMemo<RepairEstimate>(() => {
     const minutes = nullableNumber(economicForm.repairMinutes);
@@ -155,6 +160,20 @@ export default function AnalyseForm({ imported, importedTitle, importedPrice }: 
     [economicInput, financial, identity.category, identity.title],
   );
   const dealResult = useMemo(() => dealEngineInput ? analyzeDeal(dealEngineInput) : null, [dealEngineInput]);
+  const decisionContext = useMemo(() => partsV2Result ? createDealDecisionContext({
+    listing: null,
+    resolvedIdentity: partsV2Result.identity,
+    diagnostics: partsV2Result.diagnostics,
+    selectedDiagnostic: partsV2Result.selectedDiagnostic,
+    partRequirements: partsV2Result.requirements,
+    partSearchResults: partsV2Result.searchResults,
+    selectedParts: partsResult?.selectedCandidates || [],
+    marketEstimate,
+    repairEstimate,
+    financialEstimate: financial,
+    purchaseBenefits: [],
+    warnings: partsV2Result.warnings,
+  }) : null, [financial, marketEstimate, partsResult?.selectedCandidates, partsV2Result, repairEstimate]);
 
   function updateEconomic(key: keyof EconomicForm, value: string) {
     if (key === "marketLow" || key === "marketMedian" || key === "marketHigh") setMarketResult(null);
@@ -170,6 +189,12 @@ export default function AnalyseForm({ imported, importedTitle, importedPrice }: 
       marketMedian: String(result.estimate.medianPrice),
       marketHigh: String(result.estimate.highPrice),
     }));
+  }
+
+  function acceptMarketV2Result(result: MarketEstimateV2Response) {
+    setMarketV2Result(result);
+    if (result.estimate.status !== "success") return;
+    setEconomicForm((current) => ({ ...current, marketLow: String(result.estimate.lowPrice), marketMedian: String(result.estimate.weightedMedian ?? result.estimate.medianPrice), marketHigh: String(result.estimate.highPrice) }));
   }
 
   return (
@@ -192,10 +217,10 @@ export default function AnalyseForm({ imported, importedTitle, importedPrice }: 
                 <div className="identification-fields">
                   <label><span>Catégorie</span><select value={productAnalysis.category} onChange={(event) => {
                     const category = event.target.value as ProductAnalysisResult["category"];
-                    setProductAnalysis({ ...productAnalysis, category }); setMarketResult(null); setPartsResult(null);
+                    setProductAnalysis({ ...productAnalysis, category }); setMarketResult(null); setPartsResult(null); setPartsV2Result(null);
                     setIdentity((current) => ({ ...current, category: category === "unknown" ? "" : CATEGORY_LABELS[category] }));
                   }}>{PRODUCT_CATEGORIES.map((category) => <option value={category} key={category}>{CATEGORY_LABELS[category]}</option>)}</select></label>
-                  {(["brand", "model", "reference"] as const).map((field) => <label key={field}><span>{{ brand: "Marque", model: "Modèle", reference: "Référence" }[field]}</span><input value={productAnalysis[field] ?? ""} onChange={(event) => { setProductAnalysis({ ...productAnalysis, [field]: event.target.value || null }); setMarketResult(null); setPartsResult(null); }} placeholder="Non identifié" /></label>)}
+                  {(["brand", "model", "reference"] as const).map((field) => <label key={field}><span>{{ brand: "Marque", model: "Modèle", reference: "Référence" }[field]}</span><input value={productAnalysis[field] ?? ""} onChange={(event) => { setProductAnalysis({ ...productAnalysis, [field]: event.target.value || null }); setMarketResult(null); setPartsResult(null); setPartsV2Result(null); }} placeholder="Non identifié" /></label>)}
                 </div>
                 <div className="identification-summary"><div><span>Confiance produit</span><strong>{productAnalysis.productConfidence}/100</strong><progress max="100" value={productAnalysis.productConfidence} /></div><div><span>Confiance diagnostic</span><strong>{productAnalysis.faultConfidence}/100</strong><progress max="100" value={productAnalysis.faultConfidence} /></div></div>
                 <div className="identified-faults"><strong>Pannes détectées</strong><div>{productAnalysis.detectedFaults.length ? productAnalysis.detectedFaults.map((fault) => <span key={fault}>{FAULT_LABELS[fault]}</span>) : <em>Aucune panne précise détectée</em>}</div></div>
@@ -205,13 +230,14 @@ export default function AnalyseForm({ imported, importedTitle, importedPrice }: 
           </section>
         )}
 
-        <PartsEditor key={[productAnalysis?.category, productAnalysis?.brand, productAnalysis?.model, productAnalysis?.reference].join("|")} identity={productAnalysis} result={partsResult} onResult={setPartsResult} />
+        <PartsEditor key={[productAnalysis?.category, productAnalysis?.brand, productAnalysis?.model, productAnalysis?.reference].join("|")} identity={productAnalysis} originalTitle={identity.title} result={partsResult} onResult={setPartsResult} onV2Result={setPartsV2Result} />
+        {decisionContext && <div className="decision-context-state"><strong>{decisionContext.readiness.decisionReady ? "Décision prête" : "Décision incomplète"}</strong><span>{decisionContext.readiness.decisionReady ? "Toutes les données essentielles sont disponibles." : `Il manque : ${decisionContext.readiness.missing.join(" · ")}`}</span></div>}
 
         <section className="economics-section">
           <div className="economics-heading"><div><p className="eyebrow">ESTIMATIONS CONTRÔLÉES</p><h2>Économie du deal</h2></div><span className={`readiness readiness-${financial.readiness}`}>{financial.readiness === "ready" ? "Prêt" : financial.readiness === "estimable" ? "Partiellement estimable" : "Incomplet"}</span></div>
 
           <div className="deal-basics">
-            <label><span>Titre</span><input value={identity.title} onChange={(event) => { setIdentity({ ...identity, title: event.target.value }); setMarketResult(null); }} placeholder="Titre de l’annonce" /></label>
+            <label><span>Titre</span><input value={identity.title} onChange={(event) => { setIdentity({ ...identity, title: event.target.value }); setMarketResult(null); setPartsV2Result(null); }} placeholder="Titre de l’annonce" /></label>
             <label><span>Catégorie</span><input value={identity.category} onChange={(event) => setIdentity({ ...identity, category: event.target.value })} placeholder="À confirmer" /></label>
             <label><span>Prix d’achat</span><input type="number" min="0" value={identity.purchasePrice} onChange={(event) => setIdentity({ ...identity, purchasePrice: event.target.value })} placeholder="À estimer" /></label>
           </div>
@@ -220,7 +246,7 @@ export default function AnalyseForm({ imported, importedTitle, importedPrice }: 
             <section className="economics-panel">
               <h3>Marché</h3>
               {(["marketLow", "marketMedian", "marketHigh"] as const).map((key, index) => <label key={key}><span>{["Prix bas", "Prix médian", "Prix haut"][index]}</span><input type="number" min="0" value={economicForm[key]} onChange={(event) => updateEconomic(key, event.target.value)} placeholder="À estimer" /></label>)}
-              <MarketEstimator identity={productAnalysis} originalTitle={identity.title} result={marketResult} onResult={acceptMarketResult} />
+              <MarketEstimator identity={productAnalysis} originalTitle={identity.title} result={marketResult} onResult={acceptMarketResult} v2Result={marketV2Result} onV2Result={acceptMarketV2Result} />
               <dl><div><dt>Confiance</dt><dd>{marketEstimate.confidence === null ? "À estimer" : `${marketEstimate.confidence}/100`}</dd></div><div><dt>Comparables</dt><dd>{marketEstimate.sampleSize ?? "À estimer"}</dd></div><div><dt>Source</dt><dd>{marketEstimate.source?.name ?? "À estimer"}</dd></div></dl>
             </section>
 
